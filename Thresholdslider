@@ -1,0 +1,49 @@
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+
+using namespace cv;
+using namespace std;
+int sliderPosition = 0;
+int thresh = 0;
+int beta;
+
+void onTrackbarSlide(int, void*)
+{
+	thresh = sliderPosition;
+	beta = 1 - thresh;
+	}
+
+int main(int argc, char* argv[])
+{
+	VideoCapture cap(0); // open the video camera no. 0
+
+	if (!cap.isOpened()){
+		cout << "can't find camera, check drivers";
+		return -1;
+	}
+
+	namedWindow("Webcam", CV_WINDOW_AUTOSIZE);
+
+	namedWindow("Threshold", CV_WINDOW_AUTOSIZE);
+	
+	createTrackbar("Threshold slider", "Threshold", &sliderPosition, 255, onTrackbarSlide);
+
+
+	while (1)
+	{
+		Mat frame, frameGray, frameThresh;
+		cap.read(frame);
+		cvtColor(frame, frameGray, CV_RGB2GRAY);
+		threshold(frameGray, frameThresh, thresh, 255, THRESH_BINARY);
+		//adaptiveThreshold(frameGray, frameThresh, 100, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 100, 1);
+		setTrackbarPos("Threshold slider", "Threshold", sliderPosition);
+		imshow("Webcam", frameGray);
+		imshow("Threshold", frameThresh);
+
+		waitKey(30);
+
+	}
+	return 0;
+}

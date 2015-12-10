@@ -5,42 +5,79 @@
 
 using namespace cv;
 using namespace std;
+//variabels for threshold slider
 int sliderPosition = 0;
-int thresh = 0;
+int thresh = 100;
 int beta;
+//variables for adaptive threshold slider
+int sliderPosition2 = 0;
+int adaptiveThresh = 100;
+int beta2;
+//variables for adaptive threshold mask size slider
+int sliderPosition3 = 0;
+int adaptiveThreshSize = 3;
+int beta3;
 
+
+//function for slider 1
 void onTrackbarSlide(int, void*)
 {
 	thresh = sliderPosition;
-	beta = 1 - thresh;
+
 	}
+//function for slider 2
+void onTrackbarSlide2(int, void*)
+{
+	adaptiveThresh = sliderPosition2;
+
+}
+
+//function for slider 3
+void onTrackbarSlide3(int, void*)
+{
+	adaptiveThreshSize = 2*sliderPosition3+1;
+	
+}
+
 
 int main(int argc, char* argv[])
 {
 	VideoCapture cap(0); // open the video camera no. 0
-
+	
+	//checks if camera is working
 	if (!cap.isOpened()){
 		cout << "can't find camera, check drivers";
 		return -1;
 	}
-
+	//creating windows
 	namedWindow("Webcam", CV_WINDOW_AUTOSIZE);
-
 	namedWindow("Threshold", CV_WINDOW_AUTOSIZE);
+	namedWindow("Adaptive threshold", CV_WINDOW_AUTOSIZE);
 	
-	createTrackbar("Threshold slider", "Threshold", &sliderPosition, 255, onTrackbarSlide);
+	//Creates trackbar controlling threshold
+	createTrackbar("Threshold slider", "Threshold", &sliderPosition, 255, onTrackbarSlide);				
 
+	//Creates trackbar controlling adaptive threshold
+	createTrackbar("adaptiveThreshold slider", "Adaptive threshold", &sliderPosition2, 255, onTrackbarSlide2);
 
+	//Creates trackbar controlling adaptive threshold size
+	createTrackbar("adaptiveThresholdSize slider", "Adaptive threshold", &sliderPosition3, 50, onTrackbarSlide3);
+
+	//while loop displays video frames
 	while (1)
 	{
-		Mat frame, frameGray, frameThresh;
+		Mat frame, frameGray, frameThresh, frameAdaptiveThresh;
+
 		cap.read(frame);
-		cvtColor(frame, frameGray, CV_RGB2GRAY);
-		threshold(frameGray, frameThresh, thresh, 255, THRESH_BINARY);
-		//adaptiveThreshold(frameGray, frameThresh, 100, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 100, 1);
-		setTrackbarPos("Threshold slider", "Threshold", sliderPosition);
+		cvtColor(frame, frameGray, CV_RGB2GRAY);			//converts frames to gray
+		threshold(frameGray, frameThresh, thresh, 255, THRESH_BINARY);		//creates a thresholded frame
+		adaptiveThreshold(frameGray, frameAdaptiveThresh, adaptiveThresh, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, adaptiveThreshSize, 1);
+		
+		//setTrackbarPos("Threshold slider", "Threshold", sliderPosition);		//sets trackbar on threshold window
+		
 		imshow("Webcam", frameGray);
 		imshow("Threshold", frameThresh);
+		imshow("Adaptive threshold", frameAdaptiveThresh);
 
 		waitKey(30);
 

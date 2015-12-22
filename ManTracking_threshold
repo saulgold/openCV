@@ -1,0 +1,64 @@
+// ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+
+
+using namespace cv;
+using namespace std;
+//variabels for threshold slider
+int SliderPosition = 0; int SliderPosition2 = 0; int SliderPosition3 = 0;
+int thresh = 0;
+int AdaptiveThresh = 0; int AdaptiveThreshSize = 3;
+Mat frame, GrayFrame, ThresholdFrame, AdaptiveThreshFrame;
+void onTrackbarSlide(int, void*)
+{
+	thresh = SliderPosition;
+
+}
+
+void onTrackbarSlide2(int, void*)
+{
+	AdaptiveThresh = SliderPosition2;
+
+}
+
+void onTrackbarSlide3(int, void*)
+{
+
+
+	AdaptiveThreshSize = 2 * SliderPosition3 + 1;
+	
+}
+
+int main(int argc, char* argv[])
+{
+	VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+	namedWindow("video", CV_WINDOW_AUTOSIZE);
+	namedWindow("Threshold", CV_WINDOW_AUTOSIZE);
+	namedWindow("Adaptive Threshold", CV_WINDOW_AUTOSIZE);
+
+	//Creates trackbar controlling threshold
+	createTrackbar("Threshold slider", "Threshold", &SliderPosition, 255, onTrackbarSlide);
+	createTrackbar("Adaptive Threshold slider", "Adaptive Threshold", &SliderPosition2, 255, onTrackbarSlide2);
+	createTrackbar("Adaptive Threshold size slider", "Adaptive Threshold", &SliderPosition3, 50, onTrackbarSlide3);
+
+	while (1){
+		
+		cap.read(frame);
+		cvtColor(frame, GrayFrame, CV_RGB2GRAY);
+		threshold(GrayFrame, ThresholdFrame, thresh, 255, THRESH_BINARY);		//creates a thresholded frame
+		adaptiveThreshold(GrayFrame, AdaptiveThreshFrame, AdaptiveThresh, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, AdaptiveThreshSize,1);
+		imshow("Video", GrayFrame);
+		imshow("Threshold", ThresholdFrame);
+		imshow("Adaptive Threshold", AdaptiveThreshFrame);
+		waitKey(30);
+
+	}
+}
+

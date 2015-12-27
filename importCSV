@@ -1,0 +1,55 @@
+#include "stdafx.h"
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+
+using namespace std;
+
+const int Rows = 71459;
+
+const int Cols = 12;
+
+
+
+//double array[Cols][Rows] = { 0 };
+
+vector<double> RowVector(Cols,99);
+
+
+
+vector<vector<double> > DataVector(Rows,RowVector);
+
+ifstream file("C:\\opencv\\groundtruth.txt");
+
+string line;
+string value;
+double DoubleValue;
+int main()
+{
+
+	for (int row = 0; row < Rows; ++row){
+		//gets the csv line by line and stores as a string
+		getline(file,line);
+		//converts the line into stringstream - whatever that means
+		istringstream iss(line);
+
+		for (int col = 0; col < Cols; ++col){
+			//gets each value from the line seperated by a comma
+			getline(iss, value, ',');
+			//converts each value from string to double
+			DoubleValue = stod(value);
+			//assigns each value to appropriate array position
+			DataVector[row][col] = DoubleValue;
+			//prints array
+			//cout << DataVector[row][col] << " ";
+		}
+		
+		
+		
+		
+	}
+	cout << DataVector[100][10];
+	
+}

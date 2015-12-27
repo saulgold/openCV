@@ -1,0 +1,43 @@
+// ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+
+
+using namespace cv;
+using namespace std;
+
+
+Mat frame;
+double FrameNumber = 0;
+
+
+int main(int argc, char* argv[])
+{
+	
+	
+	VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+	namedWindow("video", CV_WINDOW_AUTOSIZE);
+	
+
+	
+
+	while (1){
+		
+		cap.read(frame);
+		
+		imshow("Video", frame);
+		
+		waitKey(30);
+		
+		FrameNumber = cap.get(CV_CAP_PROP_POS_FRAMES);
+		cout <<"frame number: "<< FrameNumber<<"\r";
+	}
+}
+

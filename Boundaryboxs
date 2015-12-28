@@ -1,0 +1,116 @@
+// ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+
+
+using namespace cv;
+using namespace std;
+
+const int Rows = 71459;
+const int Cols = 12;
+const int PersonNumber = 0, FrameNumberG = 1, HeadValid = 2, BodyValid = 3, HeadLeft = 4, 
+HeadTop = 5, HeadRight = 6, HeadBottom = 7, BodyLeft = 8, BodyTop = 9, BodyRight = 10, BodyBottom = 11;
+
+
+Mat frame;
+double FrameNumber = 1;
+
+vector<double> RowVector(Cols, 99);
+vector<vector<double> > DataVector(Rows, RowVector);
+
+vector<double> PersonRowVector(11, 99);
+
+vector<vector<double> > Person0Vector(Rows, PersonRowVector);
+
+int RowNumber=0;
+
+
+ifstream file("C:\\opencv\\groundtruth.txt");
+string CSVLine;
+string value;
+double DoubleValue;
+int Person0 = 0;
+int Person1 = 1;
+int n = 0;
+
+int main(int argc, char* argv[])
+{
+	///////////////////read csv////////////////////////
+	for (int row = 0; row < Rows; ++row){
+		//gets the csv line by line and stores as a string
+		getline(file, CSVLine);
+		//converts the line into stringstream - whatever that means
+		istringstream iss(CSVLine);
+
+		for (int col = 0; col < Cols; ++col){
+			//gets each value from the line seperated by a comma
+			getline(iss, value, ',');
+			//converts each value from string to double
+			DoubleValue = stod(value);
+			//assigns each value to appropriate array position
+			DataVector[row][col] = DoubleValue;
+			//prints array
+			//cout << DataVector[row][col] << " ";
+		}
+
+		
+	}
+
+	
+		////////video cap///////////////////////////////
+	
+	VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+	namedWindow("video", CV_WINDOW_AUTOSIZE);
+	
+
+	
+
+	while (1){
+	
+		
+		cap >> frame;
+		//frame = cap.get(CV_CAP_PROP_FRAME_COUNT);
+		FrameNumber = cap.get(CV_CAP_PROP_POS_FRAMES);
+	
+		while ((int)FrameNumber == (int) DataVector[RowNumber][FrameNumberG]+1){
+
+			
+			rectangle(frame, Point(DataVector[RowNumber][BodyTop], DataVector[RowNumber][BodyRight]), Point(DataVector[RowNumber][BodyBottom], DataVector[RowNumber][BodyLeft]), 1, 1);
+				++RowNumber;
+
+						
+
+
+			
+		}
+
+		imshow("video", frame);
+		waitKey(30);
+		/*default:
+			Person0++;
+			imshow("Video", frame);
+			waitKey(30);
+			cout << "frame number: " << FrameNumber << "\r";
+			break;
+
+			
+		}
+		*/
+		
+		
+		
+		
+	}
+}
+

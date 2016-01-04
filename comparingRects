@@ -1,0 +1,197 @@
+//TODO : export the intersection rects
+
+//ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include "tracking\tracking.hpp"
+
+
+using namespace cv;
+using namespace std;
+VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+int a = 0;
+const int Rows = 71459;
+const int Cols = 12;
+const int PersonNumber = 0, FrameNumberG = 1, HeadValid = 2, BodyValid = 3, HeadLeft = 4,
+HeadTop = 5, HeadRight = 6, HeadBottom = 7, BodyLeft = 8, BodyTop = 9, BodyRight = 10, BodyBottom = 11;
+int TotalFrame = cap.get(CV_CAP_PROP_FRAME_COUNT);
+
+class RectFrame{
+public:
+	Rect Rectangle[71460];
+	int FrameNumber[4500];
+};
+RectFrame GroundTruthClass;
+RectFrame HogClass;
+RectFrame IntersectionRect;
+Mat frame;
+Mat FrameCanny;
+Mat FrameHSV;
+Mat FrameHog;
+
+int CurrentFrame = 0;
+
+
+vector<double> RowVector(Cols, 99);
+vector<vector<double> > DataVector(Rows, RowVector);
+
+vector<double> PersonRowVector(11, 99);
+
+vector<vector<double> > Person0Vector(Rows, PersonRowVector);
+vector<Rect> Found, FoundFiltered, GroundTruth, HogRects;
+vector<int> HogFrameCount, GroundTruthFrameCount;
+int RowNumber = 0;
+
+
+ifstream file("C:\\opencv\\groundtruth.txt");
+string CSVLine;
+string value;
+double DoubleValue;
+int Person0 = 0;
+int Person1 = 1;
+int n = 0;
+int NoOfGroundTruthRects = 0;
+int GTRow = 0;
+
+int main(int argc, char* argv[])
+{
+	HOGDescriptor hog;
+	hog.setSVMDetector(HOGDescriptor::getDefaultPeopleDetector());
+	cout << "reading ground truth CSV" << endl;
+
+	
+	///////////////////ground truth read csv to DataVector////////////////////////
+	for (int row = 0; row < Rows; ++row){
+		//gets the csv line by line and stores as a string
+		getline(file, CSVLine);
+		NoOfGroundTruthRects++;
+		//converts the line into stringstream - whatever that means
+		istringstream iss(CSVLine);
+
+		for (int col = 0; col < Cols; ++col){
+			//gets each value from the line seperated by a comma
+			getline(iss, value, ',');
+			//converts each value from string to double
+			DoubleValue = stod(value);
+			//assigns each value to appropriate array position
+			DataVector[row][col] = DoubleValue;
+			//prints array
+			//cout << DataVector[row][col] << " ";
+		}
+
+
+	}
+	/////convert ground truth data vector to rectframe class
+	/*
+	cout << "turning ground truth data to rectangle class" << endl;
+	for (int row1 = 0; row1 < Rows; ++row1){
+
+		GroundTruthClass.FrameNumber[row1] = DataVector[row1][FrameNumberG];
+		GroundTruthClass.Rectangle[row1] = Rect(Point(DataVector[row1][BodyLeft], DataVector[row1][BodyTop]), Point(DataVector[row1][BodyRight], DataVector[row1][BodyBottom]));
+		//cout << GroundTruthClass.FrameNumber[row1] << " " << GroundTruthClass.Rectangle[row1]<<endl;
+	}
+
+	*/
+	cout << "finished" << endl;
+
+	/*
+	///////save GRound truth rects to csv//////
+	ofstream GTFile("Ground_Truth.xls");
+
+	for (int row1 = 0; row1 < Rows; ++row1){
+	GroundTruth.push_back(Rect(Point(DataVector[row1][BodyLeft], DataVector[row1][BodyTop]), Point(DataVector[row1][BodyRight], DataVector[row1][BodyBottom])));
+
+	GTFile << GroundTruth[row1]<<"\t"<<DataVector[row1][FrameNumberG] << endl;
+	}
+	GTFile.close();
+	cout << "finished reading CSV" << endl;
+	*/
+
+	//////////////video cap///////////////////////////////
+
+	while (CurrentFrame != 4500){
+
+		cap >> FrameHog;
+		CurrentFrame = cap.get(CV_CAP_PROP_POS_FRAMES);
+
+
+		//get hog rectangles and put them into the found vector
+		hog.detectMultiScale(FrameHog, Found, 0, Size(8, 8), Size(32, 32), 1.05, 2);
+
+		//gets all hog rectangles and pastes them onto FrameHog
+		/*for (size_t i = 0; i < Found.size(); i++){
+		rectangle(FrameHog, Found[i], 10, 1, 8, 0);
+		}*/
+
+		//gets all the hog rectangles into RectFrame class
+		cout << "putting hog features into RectFrame class" << endl;
+		for (size_t i = 0; i < Found.size(); ++i){
+			
+			HogClass.FrameNumber[i] = CurrentFrame;
+			HogClass.Rectangle[i] = Found[i];
+			cout << "rect: " << HogClass.Rectangle[i] << ", Frame number: " << HogClass.FrameNumber[i]<<endl;
+		}
+		cout << "finished" << endl;
+		cout << DataVector[0][1];
+		//
+		
+		int NumberOfGTRects = 0;
+
+		while (DataVector[GTRow][FrameNumberG] == CurrentFrame - 1){
+			GroundTruthClass.Rectangle[GTRow] = Rect(Point(DataVector[GTRow][BodyLeft], DataVector[GTRow][BodyTop]), Point(DataVector[GTRow][BodyRight], DataVector[GTRow][BodyBottom]));
+			GroundTruthClass.FrameNumber[GTRow] = DataVector[GTRow][FrameNumberG] +1;
+			++GTRow;
+			++NumberOfGTRects;
+		}
+		
+		
+		cout << "finished" << endl; 
+		////comparing GT and hog rects
+		for (int j = 0; j < NumberOfGTRects; ++j){
+			for (size_t i = 0; i < Found.size(); ++i){
+				IntersectionRect.Rectangle[i] = HogClass.Rectangle[j] & GroundTruthClass.Rectangle[i];
+				
+				cout << IntersectionRect.Rectangle[i] << endl;
+			}
+		}
+
+		/*while ((int)FrameNumber == (int) DataVector[RowNumber][FrameNumberG]+1){
+
+
+		rectangle(frame, Point(DataVector[RowNumber][BodyLeft], DataVector[RowNumber][BodyTop]), Point(DataVector[RowNumber][BodyRight], DataVector[RowNumber][BodyBottom]), 1, 1);
+		rectangle(frame, Point(DataVector[RowNumber][HeadLeft], DataVector[RowNumber][HeadTop]), Point(DataVector[RowNumber][HeadRight], DataVector[RowNumber][HeadBottom]), 4, 4);
+
+		++RowNumber;
+
+		}*/
+
+		//imshow("video", frame);
+		/*imshow("Hog Video", FrameHog);
+		waitKey(30);
+		//if (waitKey(10) >= 0)
+		//break;
+		*/
+
+
+		cout << "	current frame: " << CurrentFrame << "\r";
+		ofstream HogFile("Hog_Rect.xls");
+		for (size_t i = 0; i < HogRects.size(); ++i){
+			HogFile << HogRects[i] << "\t" << HogFrameCount[i] << endl;
+		}
+
+	}
+
+	return 0;
+}
+

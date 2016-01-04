@@ -1,0 +1,52 @@
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include <iostream>
+#include <fstream>
+
+using namespace std;
+using namespace cv;
+
+int sliderPosition = 0;
+int run = 1, dontSet = 0;
+VideoCapture vid;
+
+void trackbarSlide(int pos, void *){
+	vid.set(CAP_PROP_POS_FRAMES, pos);
+	if (!dontSet){
+		run = 1;
+	}
+	dontSet = 0;
+}
+
+int main(int argc, char** argv) {
+	namedWindow("video", WINDOW_AUTOSIZE);
+	
+	vid.open("TownCentreXVID.avi");
+	int frames = (int) vid.get(CAP_PROP_FRAME_COUNT);
+	int width = (int)vid.get(CAP_PROP_FRAME_WIDTH);
+	int height = (int)vid.get(CAP_PROP_FRAME_HEIGHT);
+	cout << "Video has " << frames << " frames, of dimensions("
+		<< width << ", " << height << ")." << endl;
+	createTrackbar("Position", "video", &sliderPosition, frames,trackbarSlide);
+		Mat frame;
+	for (;;){
+		if (run != 0){
+			vid >> frame;
+			if (frame.empty()) break;
+			int currentPos = (int)vid.get(CAP_PROP_POS_FRAMES);
+			dontSet = 1;
+			setTrackbarPos("Position", "video", currentPos);
+			imshow("video", frame);
+			run = 1;
+		}
+		char c = (char)waitKey(10);
+		if (c == 's'){
+			run = 1; cout << "single step, run = " << run << endl;
+				}
+		if (c == 'r'){
+			run = -1; cout << "Run mode, run = " << run << endl;
+				}
+		if (c == 27) break;
+	}
+	return 0;
+}

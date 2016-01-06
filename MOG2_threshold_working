@@ -1,0 +1,122 @@
+//TODO : export the intersection rects
+
+//ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include "tracking\tracking.hpp"
+
+using namespace cv;
+using namespace std;
+//matrices
+Mat Foreground, Frame, ForegroundThreshold, ForegroundAdaptiveThreshold;
+
+VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+int TotalFrame = cap.get(CV_CAP_PROP_FRAME_COUNT), CurrentFrame = 0;
+//variabels for threshold slider
+int sliderPosition = 0, Threshold = 100, beta;
+//variables for adaptive threshold slider
+int sliderPosition2 = 0, AdaptiveThresh = 100, beta2;
+//variables for adaptive threshold mask size slider
+int sliderPosition3 = 0, AdaptiveThreshSize = 3, beta3;
+
+//function for slider 1
+void onTrackbarSlide(int, void*) {Threshold = sliderPosition;}
+//function for slider 2
+void onTrackbarSlide2(int, void*) {AdaptiveThresh = sliderPosition2;}
+//function for slider 3
+void onTrackbarSlide3(int, void*)
+{
+	AdaptiveThreshSize = 2 * sliderPosition3 + 1;
+
+}
+
+//function header boundary  box
+void boundaryBox(int, void*);
+
+int main(int argc, char* argv[])
+{
+	
+	namedWindow("Foreground", WINDOW_AUTOSIZE);
+	namedWindow("Threshold", WINDOW_AUTOSIZE);
+	namedWindow("Adaptive Threshold", WINDOW_AUTOSIZE);
+
+	//Creates trackbar controlling threshold
+	createTrackbar("Thresh ", "Threshold", &sliderPosition, 255, onTrackbarSlide);
+	//Creates trackbar controlling adaptive threshold
+	createTrackbar("AThresh", "Adaptive Threshold", &sliderPosition2, 255, onTrackbarSlide2);
+	//Creates trackbar controlling adaptive threshold size
+	createTrackbar("size", "Adaptive Threshold", &sliderPosition3, 50, onTrackbarSlide3);
+
+
+	Ptr<BackgroundSubtractorMOG2> MOG2Pointer = createBackgroundSubtractorMOG2();
+	
+	
+		
+	//////////////video cap///////////////////////////////
+
+	while (CurrentFrame != 4500){
+		
+		    cap >> Frame;
+			CurrentFrame = cap.get(CV_CAP_PROP_POS_FRAMES);
+			cout << "current frame: " << CurrentFrame << "\r";
+			
+			//update background and return foreground
+			MOG2Pointer->apply(Frame, Foreground);
+			/*
+			threshold(Foreground, ForegroundThreshold, Threshold, 255, THRESH_BINARY_INV);
+			adaptiveThreshold(Foreground, ForegroundAdaptiveThreshold, AdaptiveThresh, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, AdaptiveThreshSize, 1);
+			
+			resize(Foreground, Foreground, Size(), 0.5, 0.5);
+			resize(ForegroundThreshold, ForegroundThreshold, Size(), 0.5, 0.5);
+			resize(ForegroundAdaptiveThreshold, ForegroundAdaptiveThreshold, Size(), 0.5, 0.5);
+
+			imshow("Foreground", Foreground);
+			imshow("Threshold", ForegroundThreshold);
+			imshow("Adaptive Threshold", ForegroundAdaptiveThreshold);
+			*/
+			boundaryBox(0, 0);
+			waitKey(30);
+		
+		
+	}
+
+	return 0;
+}
+
+void boundaryBox(int, void*){
+
+	vector<vector<Point> > Contours;
+	vector<Vec4i> Hierarchy;
+	findContours(Foreground, Contours, Hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+	//approximate contours to rectangles
+	vector<vector<Point> > contours_poly(Contours.size());
+	vector<Rect> BoundRects(Contours.size());
+
+	for (int i = 0; i < Contours.size(); i++){
+		approxPolyDP(Mat(Contours[i]), contours_poly[i], 3, true);
+		BoundRects[i] = boundingRect(Mat(contours_poly[i]));
+	}
+
+	//draw rects
+	Mat Drawing = Mat::zeros(Foreground.size(), CV_8UC3);
+
+	for (int i = 0; i < Contours.size(); i++){
+		rectangle(Drawing, BoundRects[i].tl(), BoundRects[i].br(), Scalar(0, 0, 255), 2, 8, 0);
+	}
+
+	namedWindow("boundary box", CV_WINDOW_AUTOSIZE);
+	resize(Drawing, Drawing, Size(), 0.5, 0.5);
+	imshow("boundary box", Drawing);
+}

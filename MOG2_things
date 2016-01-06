@@ -1,0 +1,242 @@
+//TODO : export the intersection rects
+
+//ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include "tracking\tracking.hpp"
+
+
+///function
+Mat FindMOG2(Mat Frame){
+
+}
+
+
+using namespace cv;
+using namespace std;
+VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+int a = 0;
+int IntersectionCount = 0;
+const int Rows = 71459;
+const int Cols = 12;
+const int PersonNumber = 0, FrameNumberG = 1, HeadValid = 2, BodyValid = 3, HeadLeft = 4,
+HeadTop = 5, HeadRight = 6, HeadBottom = 7, BodyLeft = 8, BodyTop = 9, BodyRight = 10, BodyBottom = 11;
+
+int TotalFrame = cap.get(CV_CAP_PROP_FRAME_COUNT);
+int sliderPosition = 0;
+int run = 1, dontSet = 0;
+
+class RectFrame{
+public:
+	Rect Rectangle[71460];
+	int FrameNumber[4500];
+};
+
+void trackbarSlide(int pos, void *){
+	cap.set(CAP_PROP_POS_FRAMES, pos);
+	if (!dontSet){
+		run = 1;
+	}
+	dontSet = 0;
+}
+
+RectFrame GroundTruthClass;
+RectFrame HogClass;
+RectFrame IntersectionRect;
+Mat Frame;
+Mat FrameHog;
+Mat MOG2Mask;
+Mat KNNMask;
+vector<vector<Point> > Contours;
+vector<Vec4i> Hierachy; 
+Ptr<BackgroundSubtractor>KNNPointer;
+Ptr<BackgroundSubtractor> MOG2Pointer;
+//create background subtractor objects
+
+
+int CurrentFrame = 0;
+
+
+vector<double> RowVector(Cols, 99);
+vector<vector<double> > DataVector(Rows, RowVector);
+
+vector<double> PersonRowVector(11, 99);
+
+vector<vector<double> > Person0Vector(Rows, PersonRowVector);
+vector<Rect> Found, FoundFiltered, GroundTruth, HogRects;
+vector<int> HogFrameCount, GroundTruthFrameCount;
+int RowNumber = 0;
+
+
+ifstream file("C:\\opencv\\groundtruth.txt");
+string CSVLine;
+string value;
+double DoubleValue;
+int Person0 = 0;
+int Person1 = 1;
+int n = 0;
+int NoOfGroundTruthRects = 0;
+int GTRow = 0;
+ofstream IntersectionFile("Intersection_Rect.xls");
+
+//variabels for threshold slider
+int SliderPosition = 0; int SliderPosition2 = 0; int SliderPosition3 = 0;
+int thresh = 0;
+int AdaptiveThresh = 0; int AdaptiveThreshSize = 3;
+Mat frame, GrayFrame, ThresholdFrame, AdaptiveThreshFrame;
+void onTrackbarSlide(int, void*)
+{
+	thresh = SliderPosition;
+
+}
+
+void onTrackbarSlide2(int, void*)
+{
+	AdaptiveThresh = SliderPosition2;
+
+}
+
+void onTrackbarSlide3(int, void*)
+{
+
+
+	AdaptiveThreshSize = 2 * SliderPosition3 + 1;
+
+}
+
+int main(int argc, char* argv[])
+{
+	MOG2Pointer = createBackgroundSubtractorMOG2();
+
+	
+	namedWindow("MOG2 Rects", WINDOW_AUTOSIZE);
+	namedWindow("MOG2 mask", WINDOW_AUTOSIZE);
+
+	namedWindow("Threshold", CV_WINDOW_AUTOSIZE);
+	namedWindow("Adaptive Threshold", CV_WINDOW_AUTOSIZE);
+	//namedWindow("KNN video", WINDOW_AUTOSIZE);
+	int frames = (int)cap.get(CAP_PROP_FRAME_COUNT);
+	int width = (int)cap.get(CAP_PROP_FRAME_WIDTH);
+	int height = (int)cap.get(CAP_PROP_FRAME_HEIGHT);
+
+	//createTrackbar("Position", "video", &sliderPosition, frames, trackbarSlide);
+
+	cout << "reading ground truth CSV" << endl;
+
+	
+	///////////////////ground truth read csv to DataVector////////////////////////
+	/*
+	for (int row = 0; row < Rows; ++row){
+		//gets the csv line by line and stores as a string
+		getline(file, CSVLine);
+		NoOfGroundTruthRects++;
+		//converts the line into stringstream - whatever that means
+		istringstream iss(CSVLine);
+
+		for (int col = 0; col < Cols; ++col){
+			//gets each value from the line seperated by a comma
+			getline(iss, value, ',');
+			//converts each value from string to double
+			DoubleValue = stod(value);
+			//assigns each value to appropriate array position
+			DataVector[row][col] = DoubleValue;
+			//prints array
+			//cout << DataVector[row][col] << " ";
+		}
+
+
+	}
+
+	*/
+
+
+
+	
+
+	//////////////video cap///////////////////////////////
+
+	while (CurrentFrame != 4500){
+		if (run != 0){
+
+			cap >> Frame;
+			if (Frame.empty()) break;
+			//update backgound model
+			MOG2Pointer->apply(Frame, MOG2Mask);
+			// find contours
+			findContours(MOG2Mask,Contours, Hierachy, CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+			//approximate contours to polygons and get bounding rects
+			vector<vector<Point> > ContoursPoly(Contours.size());
+			vector<Rect> MOGRects(Contours.size());
+
+			for (int i = 0; i < Contours.size(); i++){
+				approxPolyDP(Mat(Contours[i]), ContoursPoly[i], 3, true);
+				MOGRects[i] = boundingRect(Mat(ContoursPoly[i]));
+
+			}
+
+			//draw polygonal contour and bounding rects
+			Mat Drawing = Mat::zeros(MOG2Mask.size(), CV_8UC3);
+			
+			for (int i = 0; i < Contours.size(); i++){
+				drawContours(Drawing, ContoursPoly, i, Scalar(0, 0, 255), 1, 8, vector<Vec4i>(), 0, Point());
+				rectangle(Drawing, MOGRects[i].tl(), MOGRects[i].br(), Scalar(0, 255, 0), 2, 8, 0);
+
+			}
+			//KNNPointer->apply(Frame, KNNMask);
+			
+			CurrentFrame = cap.get(CV_CAP_PROP_POS_FRAMES);
+			int currentPos = (int)cap.get(CAP_PROP_POS_FRAMES);
+			dontSet = 1;
+			setTrackbarPos("Position", "video", currentPos);
+			run = 1;
+			cout << "current frame: " << CurrentFrame << "\r";
+
+		
+			//puts all ground ttruth rects from current frame into RectFrame class
+			/*
+			vector<int> IntersectionArea;
+			int NumberOfGTRects = 0;
+			
+			while (DataVector[GTRow][FrameNumberG] == CurrentFrame - 1){
+				GroundTruthClass.Rectangle[NumberOfGTRects] = Rect(Point(DataVector[GTRow][BodyLeft], DataVector[GTRow][BodyTop]), Point(DataVector[GTRow][BodyRight], DataVector[GTRow][BodyBottom]));
+				GroundTruthClass.FrameNumber[NumberOfGTRects] = DataVector[GTRow][FrameNumberG] + 1;
+				++GTRow;
+				++NumberOfGTRects;
+			}
+
+			*/
+
+			cvtColor(MOG2Mask, GrayFrame, CV_RGB2GRAY);
+			threshold(GrayFrame, ThresholdFrame, thresh, 255, THRESH_BINARY);		//creates a thresholded frame
+			adaptiveThreshold(GrayFrame, AdaptiveThreshFrame, AdaptiveThresh, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, AdaptiveThreshSize, 1);
+			//imshow("Video", GrayFrame);
+			resize(ThresholdFrame, ThresholdFrame, Size(), 0.5, 0.5);
+			resize(AdaptiveThreshFrame, AdaptiveThreshFrame, Size(), 0.5, 0.5);
+			
+			imshow("Threshold", ThresholdFrame);
+			imshow("Adaptive Threshold", AdaptiveThreshFrame);
+
+			//resize(Drawing, Drawing, Size(), 0.5, 0.5);
+			//resize(MOG2Mask, MOG2Mask, Size(), 0.5, 0.5);
+			//imshow("MOG2 Rects", Drawing);
+			//imshow("MOG2 mask", MOG2Mask);
+			////imshow("KNN video", KNNMask);
+			waitKey(30);
+		}
+		
+	}
+
+	return 0;
+}
+

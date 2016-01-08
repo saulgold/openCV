@@ -1,0 +1,129 @@
+//TODO : export the intersection rects
+
+//ManTracking.cpp : Defines the entry point for the console application.
+//
+#include "stdafx.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include "opencv2/videoio/videoio.hpp"
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/features2d/features2d.hpp>
+#include "ml.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include "tracking\tracking.hpp"
+
+using namespace cv;
+using namespace std;
+//matrices
+Mat Foreground, Frame, ForegroundThreshold, ForegroundAdaptiveThreshold, Frame2, ForegroundDilate, ForegroundErode;
+
+VideoCapture cap("C:/Users/SAL/Videos/TownCentreXVID.avi");
+int TotalFrame = cap.get(CV_CAP_PROP_FRAME_COUNT), CurrentFrame = 0;
+//variabels for threshold slider
+int sliderPosition = 0, Threshold = 100, beta;
+//variables for rect removal slider
+int sliderPosition2 = 0, MinRectSize = 3500, beta2;
+//variables for dilationg slider
+int sliderPosition3 = 0, DilateKernalSize = 6, beta3;
+//variables for erosion slider
+int sliderPosition4 = 0, ErodeKernalSize = 1, beta4;
+
+//function for slider 1
+void onTrackbarSlide(int, void*) {Threshold = sliderPosition;}
+//function for slider 2
+void onTrackbarSlide2(int, void*) {MinRectSize = sliderPosition2;}
+//function for slider 3
+void onTrackbarSlide3(int, void*) { DilateKernalSize = sliderPosition3; }
+//function for slider 4
+void onTrackbarSlide4(int, void*) { ErodeKernalSize = sliderPosition4; }
+
+
+int main(int argc, char* argv[])
+{
+	namedWindow("Dilate", CV_WINDOW_AUTOSIZE);
+	namedWindow("rects", CV_WINDOW_AUTOSIZE);
+	namedWindow("Threshold", CV_WINDOW_AUTOSIZE);
+
+	//Creates trackbar controlling min rect size
+	createTrackbar("size", "rects", &sliderPosition2, 10000, onTrackbarSlide2);
+	createTrackbar("Dilation", "Dilate", &sliderPosition3, 20, onTrackbarSlide3);
+	createTrackbar("Erode", "Dilate", &sliderPosition4, 20, onTrackbarSlide4);
+	createTrackbar("Threshold", "Threshold", &sliderPosition, 255, onTrackbarSlide);
+
+	Ptr<BackgroundSubtractorMOG2> MOG2Pointer = createBackgroundSubtractorMOG2();
+	
+
+
+		
+	//////////////video cap///////////////////////////////
+
+	while (CurrentFrame != 4500){
+		
+		    cap >> Frame;
+			
+			CurrentFrame = cap.get(CV_CAP_PROP_POS_FRAMES);
+			cout << "current frame: " << CurrentFrame << "\r";
+			
+			//update background and return foreground
+			MOG2Pointer->apply(Frame, Foreground,-0.5);
+			
+		
+			///////////////////do MOG2
+			vector<vector<Point> > Contours;
+			vector<Vec4i> Hierarchy;
+			
+			threshold(Foreground, ForegroundThreshold, 227, 255, THRESH_BINARY_INV);
+			///////erode(opposite due to invert colours)/////////////
+			//int ErodeKernalSize = 6;
+			Mat element1 = getStructuringElement(cv::MORPH_CROSS,
+				cv::Size(2 * ErodeKernalSize + 1, 2 * ErodeKernalSize + 1),
+				cv::Point(ErodeKernalSize, ErodeKernalSize));
+
+			dilate(ForegroundThreshold, ForegroundErode, element1);
+
+			///////dilate (opposite due to invert colours)/////////////
+			//int DilateKernalSize = 6;
+			Mat element = getStructuringElement(cv::MORPH_CROSS,
+				cv::Size(2 * DilateKernalSize + 1, 2 * DilateKernalSize + 1),
+				cv::Point(DilateKernalSize, DilateKernalSize));
+			
+			erode(ForegroundErode, ForegroundDilate, element);
+			Mat ForegroundContour = ForegroundDilate.clone();
+			findContours(ForegroundContour, Contours, Hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+			//approximate contours to rectangles
+			vector<vector<Point> > contours_poly(Contours.size());
+			vector<Rect> BoundRects(Contours.size());
+
+			for (int i = 0; i < Contours.size(); i++){
+				approxPolyDP(Mat(Contours[i]), contours_poly[i], 9, true);
+				BoundRects[i] = boundingRect(Mat(contours_poly[i]));
+			}
+
+			//draw rects
+			Mat Drawing = Mat::zeros(Foreground.size(), CV_8UC3);
+
+			for (int i = 0; i < Contours.size(); i++){
+				if (BoundRects[i].area()>MinRectSize){
+					rectangle(Frame, BoundRects[i].tl(), BoundRects[i].br(), Scalar(0, 0, 255), 2, 8, 0);
+				}
+			}
+
+			resize(Frame, Frame, Size(), 0.5, 0.5);
+			resize(ForegroundDilate, ForegroundDilate, Size(), 0.5, 0.5);
+			//resize(ForegroundThreshold, ForegroundThreshold, Size(), 0.5, 0.5);
+			imshow("rects", Frame);
+			imshow("Dilate", ForegroundDilate);
+			//imshow("Threshold", ForegroundThreshold);
+			waitKey(30);
+		
+		
+	}
+
+	return 0;
+}
+
